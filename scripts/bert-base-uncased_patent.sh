@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python run_classification.py \
-    --model_name_or_path "distilbert/distilroberta-base" \
+    --model_name_or_path "google-bert/bert-base-uncased" \
     --dataset_name "ccdv/patent-classification"  \
     --dataset_config_name "abstract" \
     --text_column_name "text" \
@@ -25,9 +25,9 @@ python run_classification.py \
     --lr_scheduler_type "linear" \
     --num_train_epochs 3 \
     --report_to "wandb" \
-    --run_name "distilroberta-base_patent" \
+    --run_name "bert-base-uncased_patent" \
     --logging_strategy "steps" \
     --logging_steps 10 \
-    --hub_model_id MAdAiLab/distilroberta-base_patent \
+    --hub_model_id MAdAiLab/bert-base-uncased_patent \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/distilroberta-base_patent/
+    --output_dir /tmp/MAdAiLab/bert-base-uncased_patent/

@@ -1,14 +1,11 @@
 #!/bin/bash
 
 python run_classification.py \
-    --model_name_or_path "google/flan-t5-base" \
-    --dataset_name "ccdv/patent-classification"  \
-    --dataset_config_name "abstract" \
+    --model_name_or_path "google/flan-t5-small" \
+    --dataset_name "MAdAiLab/twitter_disaster"  \
     --text_column_name "text" \
     --label_column_name "label" \
     --shuffle_train_dataset \
-    --do_train \
-    --do_eval \
     --do_train \
     --do_eval \
     --do_predict \
@@ -27,9 +24,9 @@ python run_classification.py \
     --lr_scheduler_type "linear" \
     --num_train_epochs 3 \
     --report_to "wandb" \
-    --run_name "flan-t5-base_patent" \
+    --run_name "flan-t5-small_twitter" \
     --logging_strategy "steps" \
     --logging_steps 10 \
-    --hub_model_id MAdAiLab/flan-t5-base_patent \
+    --hub_model_id MAdAiLab/flan-t5-small_twitter \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/flan-t5-base_patent/
+    --output_dir /tmp/MAdAiLab/flan-t5-small_twitter/

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python run_classification.py \
-    --model_name_or_path "google/flan-t5-base" \
+    --model_name_or_path "google-bert/bert-base-uncased" \
     --dataset_name "MAdAiLab/twitter_disaster"  \
     --text_column_name "text" \
     --label_column_name "label" \
@@ -20,13 +20,13 @@ python run_classification.py \
     --per_device_train_batch_size 64 \
     --per_device_eval_batch_size 64 \
     --optim "adamw_torch" \
-    --learning_rate 5e-4 \
+    --learning_rate 2e-5 \
     --lr_scheduler_type "linear" \
     --num_train_epochs 3 \
     --report_to "wandb" \
-    --run_name "flan-t5-base_twitter" \
+    --run_name "bert-base-uncased_twitter" \
     --logging_strategy "steps" \
     --logging_steps 10 \
-    --hub_model_id MAdAiLab/flan-t5-base_twitter \
+    --hub_model_id MAdAiLab/bert-base-uncased_twitter \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/flan-t5-base_twitter/
+    --output_dir /tmp/MAdAiLab/bert-base-uncased_twitter/

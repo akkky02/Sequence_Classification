@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python run_classification.py \
-    --model_name_or_path "google/flan-t5-base" \
+    --model_name_or_path "google/flan-t5-small" \
     --dataset_name "MAdAiLab/twitter_disaster"  \
     --text_column_name "text" \
     --label_column_name "label" \
@@ -24,9 +24,9 @@ python run_classification.py \
     --lr_scheduler_type "linear" \
     --num_train_epochs 3 \
     --report_to "wandb" \
-    --run_name "flan-t5-base_twitter" \
+    --run_name "flan-t5-small_twitter" \
     --logging_strategy "steps" \
     --logging_steps 10 \
-    --hub_model_id MAdAiLab/flan-t5-base_twitter \
+    --hub_model_id MAdAiLab/flan-t5-small_twitter \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/flan-t5-base_twitter/
+    --output_dir /tmp/MAdAiLab/flan-t5-small_twitter/

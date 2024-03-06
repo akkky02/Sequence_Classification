@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python run_classification.py \
+python ../run_classification.py \
     --model_name_or_path "distilbert/distilroberta-base" \
     --dataset_name "MAdAiLab/twitter_disaster"  \
     --text_column_name "text" \
@@ -9,7 +9,6 @@ python run_classification.py \
     --do_train \
     --do_eval \
     --do_predict \
-    --gradient_checkpointing \
     --evaluation_strategy "steps" \
     --eval_steps 50 \
     --max_seq_length 512 \
@@ -17,8 +16,8 @@ python run_classification.py \
     --metric_name "f1" \
     --metric_for_best_model "f1" \
     --greater_is_better True \
-    --per_device_train_batch_size 64 \
-    --per_device_eval_batch_size 64 \
+    --per_device_train_batch_size 32 \
+    --per_device_eval_batch_size 32 \
     --optim "adamw_torch" \
     --learning_rate 2e-5 \
     --lr_scheduler_type "linear" \
@@ -29,4 +28,6 @@ python run_classification.py \
     --logging_steps 10 \
     --hub_model_id MAdAiLab/distilroberta-base_twitter \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/distilroberta-base_twitter/
+    --hub_strategy "all_checkpoints" \
+    --output_dir /tmp/MAdAiLab/distilroberta-base_twitter/ \
+    --overwrite_output_dir

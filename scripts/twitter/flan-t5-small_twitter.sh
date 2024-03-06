@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python run_classification.py \
+python ../run_classification.py \
     --model_name_or_path "google/flan-t5-small" \
     --dataset_name "MAdAiLab/twitter_disaster"  \
     --text_column_name "text" \
@@ -29,4 +29,6 @@ python run_classification.py \
     --logging_steps 10 \
     --hub_model_id MAdAiLab/flan-t5-small_twitter \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/flan-t5-small_twitter/
+    --hub_strategy "all_checkpoints" \
+    --output_dir /tmp/MAdAiLab/flan-t5-small_twitter/ \
+    --overwrite_output_dir

@@ -1,8 +1,9 @@
 #!/bin/bash
 
-python run_classification.py \
-    --model_name_or_path "google-bert/bert-base-uncased" \
-    --dataset_name "MAdAiLab/twitter_disaster"  \
+python ../run_classification.py \
+    --model_name_or_path "google/flan-t5-small" \
+    --dataset_name "ccdv/patent-classification"  \
+    --dataset_config_name "abstract" \
     --text_column_name "text" \
     --label_column_name "label" \
     --shuffle_train_dataset \
@@ -20,13 +21,15 @@ python run_classification.py \
     --per_device_train_batch_size 64 \
     --per_device_eval_batch_size 64 \
     --optim "adamw_torch" \
-    --learning_rate 2e-5 \
+    --learning_rate 5e-4 \
     --lr_scheduler_type "linear" \
     --num_train_epochs 3 \
     --report_to "wandb" \
-    --run_name "bert-base-uncased_twitter" \
+    --run_name "flan-t5-small_patent" \
     --logging_strategy "steps" \
     --logging_steps 10 \
-    --hub_model_id MAdAiLab/bert-base-uncased_twitter \
+    --hub_model_id MAdAiLab/flan-t5-small_patent \
     --push_to_hub \
-    --output_dir /tmp/MAdAiLab/bert-base-uncased_twitter/
+    --hub_strategy "all_checkpoints" \
+    --output_dir /tmp/MAdAiLab/flan-t5-small_patent/ \
+    --overwrite_output_dir

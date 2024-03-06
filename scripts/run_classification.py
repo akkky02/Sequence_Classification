@@ -53,7 +53,7 @@ load_dotenv(find_dotenv())
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 WANDB_API_KEY = os.getenv("WANDB_API_KEY")
-os.environ["WANDB_PROJECT"] = "SLM_LLM_Classification"
+os.environ["WANDB_PROJECT"] = "SLM_Seq_Classification"
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.39.0.dev0")
@@ -307,10 +307,16 @@ def main():
     send_example_telemetry("run_classification", model_args, data_args)
 
     # Setup logging
+    # Create the output directory if it doesn't exist
+    os.makedirs(training_args.output_dir, exist_ok=True)
+    log_file = os.path.join(training_args.output_dir, "run.log")
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout),
+        ],
     )
 
     if training_args.should_log:
@@ -723,12 +729,16 @@ def main():
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 
+    # Prediction
     if training_args.do_predict:
         logger.info("*** Predict ***")
         # Removing the `label` columns if exists because it might contains -1 and Trainer won't like that.
-        if "label" in predict_dataset.features:
-            predict_dataset = predict_dataset.remove_columns("label")
-        predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
+        # if "label" in predict_dataset.features:
+        #     predict_dataset = predict_dataset.remove_columns("label")
+        predictions, label_ids, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
+        metrics["predict_samples"] = len(predict_dataset)
+        trainer.log_metrics("predict", metrics)
+        trainer.save_metrics("predict", metrics)
         if is_regression:
             predictions = np.squeeze(predictions)
         elif is_multi_label:

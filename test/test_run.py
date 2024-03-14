@@ -23,7 +23,7 @@ import sys
 import warnings
 from dataclasses import dataclass, field
 from typing import List, Optional
-
+import wandb
 import datasets
 import evaluate
 import numpy as np
@@ -33,6 +33,7 @@ import transformers
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
+    PhiForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -53,7 +54,7 @@ load_dotenv(find_dotenv())
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 WANDB_API_KEY = os.getenv("WANDB_API_KEY")
-os.environ["WANDB_PROJECT"] = "SLM_LLM_Classification"
+os.environ["WANDB_PROJECT"] = "TEST_SEQ_CLASSIFICATION_RUNS"
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.39.0.dev0")
@@ -62,6 +63,20 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/text
 
 
 logger = logging.getLogger(__name__)
+
+# from transformers import TrainerCallback
+
+# class WandbLoggingCallback(TrainerCallback):
+#     def on_evaluate(self, args, state, control, **kwargs):
+#         # Log evaluation metrics
+#         metrics = kwargs.get("metrics", {})
+#         wandb.log({"eval": metrics})
+
+#     def on_predict(self, args, state, control, **kwargs):
+#         # Log prediction metrics
+#         metrics = kwargs.get("metrics", {})
+#         wandb.log({"predictions": metrics})
+
 
 
 @dataclass
@@ -307,10 +322,16 @@ def main():
     send_example_telemetry("run_classification", model_args, data_args)
 
     # Setup logging
+    # Create the output directory if it doesn't exist
+    os.makedirs(training_args.output_dir, exist_ok=True)
+    log_file = os.path.join(training_args.output_dir, "run.log")
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout),
+        ],
     )
 
     if training_args.should_log:
@@ -524,7 +545,12 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    if model_args.model_name_or_path == "microsoft/phi-2" or model_args.model_name_or_path == "openai-community/gpt2":
+        tokenizer.padding_side = "left"  
+        tokenizer.pad_token = tokenizer.eos_token
+
+    sequence_classification_model = PhiForSequenceClassification if model_args.model_name_or_path == "microsoft/phi-2" else AutoModelForSequenceClassification
+    model = sequence_classification_model.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -534,6 +560,8 @@ def main():
         trust_remote_code=model_args.trust_remote_code,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+    model.resize_token_embeddings(len(tokenizer))
+    model.config.pad_token_id = tokenizer.pad_token_id
 
     # Padding strategy
     if data_args.pad_to_max_length:
@@ -694,6 +722,7 @@ def main():
         compute_metrics=compute_metrics,
         tokenizer=tokenizer,
         data_collator=data_collator,
+        # callbacks=[WandbLoggingCallback()],
     )
 
     # Training
@@ -723,41 +752,43 @@ def main():
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 
+    # Prediction
     if training_args.do_predict:
         logger.info("*** Predict ***")
         # Removing the `label` columns if exists because it might contains -1 and Trainer won't like that.
         # if "label" in predict_dataset.features:
         #     predict_dataset = predict_dataset.remove_columns("label")
-        predictions, label_ids, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
-        metrics["predict_samples"] = len(predict_dataset)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
-        if is_regression:
-            predictions = np.squeeze(predictions)
-        elif is_multi_label:
-            # Convert logits to multi-hot encoding. We compare the logits to 0 instead of 0.5, because the sigmoid is not applied.
-            # You can also pass `preprocess_logits_for_metrics=lambda logits, labels: nn.functional.sigmoid(logits)` to the Trainer
-            # and set p > 0.5 below (less efficient in this case)
-            predictions = np.array([np.where(p > 0, 1, 0) for p in predictions])
-        else:
-            predictions = np.argmax(predictions, axis=1)
-        output_predict_file = os.path.join(training_args.output_dir, "predict_results.txt")
-        if trainer.is_world_process_zero():
-            with open(output_predict_file, "w") as writer:
-                logger.info("***** Predict results *****")
-                writer.write("index\tprediction\n")
-                for index, item in enumerate(predictions):
-                    if is_regression:
-                        writer.write(f"{index}\t{item:3.3f}\n")
-                    elif is_multi_label:
-                        # recover from multi-hot encoding
-                        item = [label_list[i] for i in range(len(item)) if item[i] == 1]
-                        writer.write(f"{index}\t{item}\n")
-                    else:
-                        item = label_list[item]
-                        writer.write(f"{index}\t{item}\n")
-        logger.info("Predict results saved at {}".format(output_predict_file))
-    kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification"}
+        predictions = trainer.predict(predict_dataset)
+        metrics["test_samples"] = len(predict_dataset)
+        trainer.log_metrics("test", predictions.metrics)
+        trainer.save_metrics("test", predictions.metrics)
+        # wandb.log({"predict": predictions.metrics})
+        # if is_regression:
+        #     predictions = np.squeeze(predictions)
+        # elif is_multi_label:
+        #     # Convert logits to multi-hot encoding. We compare the logits to 0 instead of 0.5, because the sigmoid is not applied.
+        #     # You can also pass `preprocess_logits_for_metrics=lambda logits, labels: nn.functional.sigmoid(logits)` to the Trainer
+        #     # and set p > 0.5 below (less efficient in this case)
+        #     predictions = np.array([np.where(p > 0, 1, 0) for p in predictions])
+        # else:
+        #     predictions = np.argmax(predictions, axis=1)
+        # output_predict_file = os.path.join(training_args.output_dir, "predict_results.txt")
+        # if trainer.is_world_process_zero():
+        #     with open(output_predict_file, "w") as writer:
+        #         logger.info("***** Predict results *****")
+        #         writer.write("index\tprediction\n")
+        #         for index, item in enumerate(predictions):
+        #             if is_regression:
+        #                 writer.write(f"{index}\t{item:3.3f}\n")
+        #             elif is_multi_label:
+        #                 # recover from multi-hot encoding
+        #                 item = [label_list[i] for i in range(len(item)) if item[i] == 1]
+        #                 writer.write(f"{index}\t{item}\n")
+        #             else:
+        #                 item = label_list[item]
+        #                 writer.write(f"{index}\t{item}\n")
+        # logger.info("Predict results saved at {}".format(output_predict_file))
+    kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification", "dataset": data_args.dataset_name}
 
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)

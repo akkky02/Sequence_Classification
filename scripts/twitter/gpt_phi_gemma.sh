@@ -2,33 +2,38 @@
 
 # Define an array of model configurations
 models=(
-    "google-bert/bert-base-uncased,MAdAiLab/bert-base-uncased_amazon"
-    "distilbert/distilbert-base-uncased,MAdAiLab/distilbert-base-uncased_amazon"
-    "FacebookAI/roberta-base,MAdAiLab/roberta-base_amazon"
-    "distilbert/distilroberta-base,MAdAiLab/distilroberta-base_amazon"
+    # "google/gemma-2b,MAdAiLab/gemma_2b_twitter"
+    # "openai-community/gpt2,MAdAiLab/gpt2_twitter"
+    # "microsoft/phi-2,MAdAiLab/phi_2_twitter"
+    "Qwen/Qwen1.5-1.8B,MAdAiLab/Qwen1.5-1.8B_twitter"
 )
 
 # Define common parameters
 common_params=(
-    --dataset_name "MAdAiLab/amazon-attrprompt"
+    --dataset_name "MAdAiLab/twitter_disaster"
     --text_column_name "text"
     --label_column_name "label"
     --shuffle_train_dataset
+    --trust_remote_code
     --do_train
     --do_eval
     --do_predict
     --evaluation_strategy "steps"
     --eval_steps 50
-    --max_seq_length 512
     --load_best_model_at_end
+    --bf16
     --metric_name "f1"
     --metric_for_best_model "f1"
     --greater_is_better True
-    --per_device_train_batch_size 32
-    --per_device_eval_batch_size 32
-    --optim "adamw_torch"
-    --learning_rate 2e-5
-    --lr_scheduler_type "linear"
+    --per_device_train_batch_size 8
+    --per_device_eval_batch_size 8
+    --eval_accumulation_steps 50
+    --max_grad_norm 1
+    --weight_decay 0.1
+    --optim "adafactor"
+    --learning_rate 2e-6
+    # --warmup_steps 200
+    --lr_scheduler_type "cosine"
     --num_train_epochs 3
     --report_to "wandb"
     --logging_strategy "steps"
@@ -48,6 +53,6 @@ for model_config in "${models[@]}"; do
         --model_name_or_path "$model_name" \
         --hub_model_id "$hub_model_id" \
         "${common_params[@]}" \
-        --run_name "${model_name//-/_}_amazon" \
-        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_amazon/"
+        --run_name "${model_name//-/_}_twitter" \
+        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_twitter/"
 done

@@ -33,6 +33,7 @@ import transformers
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
+    PhiForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -53,7 +54,7 @@ load_dotenv(find_dotenv())
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 WANDB_API_KEY = os.getenv("WANDB_API_KEY")
-os.environ["WANDB_PROJECT"] = "SLM_Seq_Classification"
+os.environ["WANDB_PROJECT"] = "SLM_vs_LLM_Classification"
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.39.0.dev0")
@@ -530,7 +531,12 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B"]:
+        tokenizer.padding_side = "left"  
+        tokenizer.pad_token = tokenizer.eos_token
+
+    sequence_classification_model = PhiForSequenceClassification if model_args.model_name_or_path == "microsoft/phi-2" else AutoModelForSequenceClassification
+    model = sequence_classification_model.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -540,6 +546,9 @@ def main():
         trust_remote_code=model_args.trust_remote_code,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
+    if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B"]:
+        model.resize_token_embeddings(len(tokenizer))
+        model.config.pad_token_id = tokenizer.pad_token_id
 
     # Padding strategy
     if data_args.pad_to_max_length:
@@ -735,35 +744,35 @@ def main():
         # Removing the `label` columns if exists because it might contains -1 and Trainer won't like that.
         # if "label" in predict_dataset.features:
         #     predict_dataset = predict_dataset.remove_columns("label")
-        predictions, label_ids, metrics = trainer.predict(predict_dataset, metric_key_prefix="predict")
-        metrics["predict_samples"] = len(predict_dataset)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
-        if is_regression:
-            predictions = np.squeeze(predictions)
-        elif is_multi_label:
-            # Convert logits to multi-hot encoding. We compare the logits to 0 instead of 0.5, because the sigmoid is not applied.
-            # You can also pass `preprocess_logits_for_metrics=lambda logits, labels: nn.functional.sigmoid(logits)` to the Trainer
-            # and set p > 0.5 below (less efficient in this case)
-            predictions = np.array([np.where(p > 0, 1, 0) for p in predictions])
-        else:
-            predictions = np.argmax(predictions, axis=1)
-        output_predict_file = os.path.join(training_args.output_dir, "predict_results.txt")
-        if trainer.is_world_process_zero():
-            with open(output_predict_file, "w") as writer:
-                logger.info("***** Predict results *****")
-                writer.write("index\tprediction\n")
-                for index, item in enumerate(predictions):
-                    if is_regression:
-                        writer.write(f"{index}\t{item:3.3f}\n")
-                    elif is_multi_label:
-                        # recover from multi-hot encoding
-                        item = [label_list[i] for i in range(len(item)) if item[i] == 1]
-                        writer.write(f"{index}\t{item}\n")
-                    else:
-                        item = label_list[item]
-                        writer.write(f"{index}\t{item}\n")
-        logger.info("Predict results saved at {}".format(output_predict_file))
+        predictions = trainer.predict(predict_dataset)
+        metrics["test_samples"] = len(predict_dataset)
+        trainer.log_metrics("test", predictions.metrics)
+        trainer.save_metrics("test", predictions.metrics)
+        # if is_regression:
+        #     predictions = np.squeeze(predictions)
+        # elif is_multi_label:
+        #     # Convert logits to multi-hot encoding. We compare the logits to 0 instead of 0.5, because the sigmoid is not applied.
+        #     # You can also pass `preprocess_logits_for_metrics=lambda logits, labels: nn.functional.sigmoid(logits)` to the Trainer
+        #     # and set p > 0.5 below (less efficient in this case)
+        #     predictions = np.array([np.where(p > 0, 1, 0) for p in predictions])
+        # else:
+        #     predictions = np.argmax(predictions, axis=1)
+        # output_predict_file = os.path.join(training_args.output_dir, "predict_results.txt")
+        # if trainer.is_world_process_zero():
+        #     with open(output_predict_file, "w") as writer:
+        #         logger.info("***** Predict results *****")
+        #         writer.write("index\tprediction\n")
+        #         for index, item in enumerate(predictions):
+        #             if is_regression:
+        #                 writer.write(f"{index}\t{item:3.3f}\n")
+        #             elif is_multi_label:
+        #                 # recover from multi-hot encoding
+        #                 item = [label_list[i] for i in range(len(item)) if item[i] == 1]
+        #                 writer.write(f"{index}\t{item}\n")
+        #             else:
+        #                 item = label_list[item]
+        #                 writer.write(f"{index}\t{item}\n")
+        # logger.info("Predict results saved at {}".format(output_predict_file))
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification"}
 
     if training_args.push_to_hub:

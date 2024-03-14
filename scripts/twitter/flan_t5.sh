@@ -2,15 +2,17 @@
 
 # Define an array of model configurations
 models=(
-    "google-bert/bert-base-uncased,MAdAiLab/bert-base-uncased_amazon"
-    "distilbert/distilbert-base-uncased,MAdAiLab/distilbert-base-uncased_amazon"
-    "FacebookAI/roberta-base,MAdAiLab/roberta-base_amazon"
-    "distilbert/distilroberta-base,MAdAiLab/distilroberta-base_amazon"
+    "google/flan-t5-small,MAdAiLab/flan-t5-small_twitter"
+    "google/flan-t5-base,MAdAiLab/flan-t5-base_twitter"
+    "google/flan-t5-large,MAdAiLab/flan-t5-large_twitter"
+    "google-t5/t5-small",MAdAiLab/t5-small_twitter"
+    "google-t5/t5-base",MAdAiLab/t5-base_twitter"
+    
 )
 
 # Define common parameters
 common_params=(
-    --dataset_name "MAdAiLab/amazon-attrprompt"
+    --dataset_name "MAdAiLab/twitter_disaster"
     --text_column_name "text"
     --label_column_name "label"
     --shuffle_train_dataset
@@ -24,10 +26,10 @@ common_params=(
     --metric_name "f1"
     --metric_for_best_model "f1"
     --greater_is_better True
-    --per_device_train_batch_size 32
-    --per_device_eval_batch_size 32
+    --per_device_train_batch_size 16
+    --per_device_eval_batch_size 16
     --optim "adamw_torch"
-    --learning_rate 2e-5
+    --learning_rate 5e-4
     --lr_scheduler_type "linear"
     --num_train_epochs 3
     --report_to "wandb"
@@ -48,6 +50,6 @@ for model_config in "${models[@]}"; do
         --model_name_or_path "$model_name" \
         --hub_model_id "$hub_model_id" \
         "${common_params[@]}" \
-        --run_name "${model_name//-/_}_amazon" \
-        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_amazon/"
+        --run_name "${model_name//-/_}_twitter" \
+        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_twitter/"
 done

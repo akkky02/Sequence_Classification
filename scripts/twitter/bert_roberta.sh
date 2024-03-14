@@ -2,15 +2,15 @@
 
 # Define an array of model configurations
 models=(
-    "google-bert/bert-base-uncased,MAdAiLab/bert-base-uncased_amazon"
-    "distilbert/distilbert-base-uncased,MAdAiLab/distilbert-base-uncased_amazon"
-    "FacebookAI/roberta-base,MAdAiLab/roberta-base_amazon"
-    "distilbert/distilroberta-base,MAdAiLab/distilroberta-base_amazon"
+    "google-bert/bert-base-uncased,MAdAiLab/bert-base-uncased_twitter"
+    "distilbert/distilbert-base-uncased,MAdAiLab/distilbert-base-uncased_twitter"
+    "FacebookAI/roberta-base,MAdAiLab/roberta-base_twitter"
+    "distilbert/distilroberta-base,MAdAiLab/distilroberta-base_twitter"
 )
 
 # Define common parameters
 common_params=(
-    --dataset_name "MAdAiLab/amazon-attrprompt"
+    --dataset_name "MAdAiLab/twitter_disaster"
     --text_column_name "text"
     --label_column_name "label"
     --shuffle_train_dataset
@@ -48,6 +48,6 @@ for model_config in "${models[@]}"; do
         --model_name_or_path "$model_name" \
         --hub_model_id "$hub_model_id" \
         "${common_params[@]}" \
-        --run_name "${model_name//-/_}_amazon" \
-        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_amazon/"
+        --run_name "${model_name//-/_}_twitter" \
+        --output_dir "./experiments/MAdAiLab/${model_name//-/_}_twitter/"
 done

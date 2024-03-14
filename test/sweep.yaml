@@ -1,0 +1,45 @@
+program: test_run.py
+method: random
+metric:
+  name: f1
+  goal: maximize
+parameters:
+  model_name_or_path:
+    values:
+      - "google/gemma-2b"
+      - "openai-community/gpt2"
+      - "microsoft/phi-2"
+      - "Qwen/Qwen1.5-1.8B"
+  learning_rate:
+    distribution: log_uniform_values
+    min: 1e-6
+    max: 1e-4
+  num_train_epochs:
+    value: 3
+commands:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+    ${args_opt}
+    --dataset_name "MAdAiLab/twitter_disaster"
+    --text_column_name "text"
+    --label_column_name "label"
+    --shuffle_train_dataset
+    --trust_remote_code
+    --do_train
+    --do_eval
+    --do_predict
+    --gradient_checkpointing
+    --evaluation_strategy "steps"
+    --eval_steps 10
+    --load_best_model_at_end
+    --metric_name "f1"
+    --metric_for_best_model "f1"
+    --greater_is_better True
+    --optim "adafactor"
+    --lr_scheduler_type "linear"
+    --report_to "wandb"
+    --logging_strategy "steps"
+    --logging_steps 10
+    --overwrite_output_dir
+    --output_dir "./test_runs/MAdAiLab/${model_name_or_path}_twitter/"

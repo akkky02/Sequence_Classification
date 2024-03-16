@@ -685,8 +685,14 @@ def main():
                     "Using multilabel F1 for multi-label classification task, you can use --metric_name to overwrite."
                 )
             else:
-                metric = evaluate.load("accuracy", cache_dir=model_args.cache_dir)
-                logger.info("Using accuracy as classification score, you can use --metric_name to overwrite.")
+                # metric = evaluate.load("accuracy", cache_dir=model_args.cache_dir)
+                # logger.info("Using accuracy as classification score, you can use --metric_name to overwrite.")
+                #-----------------------------------------------------------#
+                # Load both accuracy and f1 metrics for single-label classification
+                accuracy = evaluate.load("accuracy", cache_dir=model_args.cache_dir)
+                f1 = evaluate.load("f1", cache_dir=model_args.cache_dir)
+                logger.info("Using both accuracy and F1 score for single-label classification task.")
+                
 
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
@@ -697,11 +703,19 @@ def main():
             preds = np.array([np.where(p > 0, 1, 0) for p in preds])  # convert logits to multi-hot encoding
             # Micro F1 is commonly used in multi-label classification
             result = metric.compute(predictions=preds, references=p.label_ids, average="micro")
+        # else:
+        #     preds = np.argmax(preds, axis=1)
+        #     result = metric.compute(predictions=preds, references=p.label_ids, average="macro")
+        # if len(result) > 1:
+        #     result["combined_score"] = np.mean(list(result.values())).item()
+        # return result
         else:
             preds = np.argmax(preds, axis=1)
-            result = metric.compute(predictions=preds, references=p.label_ids, average="macro")
-        if len(result) > 1:
-            result["combined_score"] = np.mean(list(result.values())).item()
+            result = {
+                "accuracy": accuracy.compute(predictions=preds, references=p.label_ids)["accuracy"],
+                "f1_macro": f1.compute(predictions=preds, references=p.label_ids, average="macro")["f1"],
+                "f1_micro": f1.compute(predictions=preds, references=p.label_ids, average="micro")["f1"],
+            }
         return result
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is passed to Trainer, so we change it if

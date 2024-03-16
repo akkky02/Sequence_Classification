@@ -1,0 +1,8 @@
+{
+    "zero_optimization": {
+        "stage": 1
+      },
+    "bf16": {
+        "enabled": true
+    }
+}

@@ -18,6 +18,8 @@ common_params=(
     --do_train
     --do_eval
     --do_predict
+    --max_seq_length 512
+    --gradient_checkpointing
     --evaluation_strategy "steps"
     --eval_steps 100
     --save_steps 100

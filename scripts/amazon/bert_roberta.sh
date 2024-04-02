@@ -17,6 +17,7 @@ common_params=(
     --do_train
     --do_eval
     --do_predict
+    --max_seq_length 512
     --evaluation_strategy "steps"
     --eval_steps 50
     --save_steps 50

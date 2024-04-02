@@ -2,9 +2,9 @@
 
 # Define an array of model configurations
 models=(
-    "google/gemma-2b,MAdAiLab/gemma_2b_scotus"
+    # "google/gemma-2b,MAdAiLab/gemma_2b_scotus"
     "microsoft/phi-2,MAdAiLab/phi_2_scotus"
-    "Qwen/Qwen1.5-1.8B,MAdAiLab/Qwen1.5-1.8B_scotus"
+    # "Qwen/Qwen1.5-1.8B,MAdAiLab/Qwen1.5-1.8B_scotus"
 )
 
 # Define common parameters
@@ -18,6 +18,8 @@ common_params=(
     --do_train
     --do_eval
     --do_predict
+    --gradient_checkpointing
+    --max_seq_length 512
     --evaluation_strategy "steps"
     --eval_steps 50
     --save_steps 50

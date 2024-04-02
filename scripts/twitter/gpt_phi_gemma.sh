@@ -2,9 +2,10 @@
 
 # Define an array of model configurations
 models=(
-    "google/gemma-2b,MAdAiLab/gemma_2b_twitter"
+    # "google/gemma-2b,MAdAiLab/gemma_2b_twitter"
     "microsoft/phi-2,MAdAiLab/phi_2_twitter"
-    "Qwen/Qwen1.5-1.8B,MAdAiLab/Qwen1.5-1.8B_twitter"
+    # "Qwen/Qwen1.5-1.8B,MAdAiLab/Qwen1.5-1.8B_twitter"
+    # "allenai/OLMo-1B,MAdAiLab/OLMo_1B_twitter"
 )
 
 # Define common parameters
@@ -17,12 +18,14 @@ common_params=(
     --do_train
     --do_eval
     --do_predict
+    --max_seq_length 512
+    --gradient_checkpointing
     --evaluation_strategy "steps"
     --eval_steps 50
     --save_steps 50
     --load_best_model_at_end
-    --per_device_train_batch_size 16
-    --per_device_eval_batch_size 16
+    --per_device_train_batch_size 32
+    --per_device_eval_batch_size 32
     --eval_accumulation_steps 50
     --bf16
     --max_grad_norm 1

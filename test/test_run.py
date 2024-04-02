@@ -22,7 +22,7 @@ import random
 import sys
 import warnings
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Literal, Optional, Union
 import wandb
 import datasets
 import evaluate
@@ -43,6 +43,15 @@ from transformers import (
     default_data_collator,
     set_seed,
 )
+
+from peft import (
+    TaskType,
+    LoraConfig,
+    get_peft_model,
+    PeftModel,
+    PeftConfig,
+)
+
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
@@ -281,6 +290,29 @@ class ModelArguments:
         metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."},
     )
 
+@dataclass
+class LoraArguments(PeftConfig):
+    do_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA or not"})
+    r: int = field(default=8, metadata={"help": "Lora attention dimension"})
+    target_modules: Optional[Union[list[str], str]] = field(
+        # default=None,
+        default_factory=lambda: ['v_proj', 'q_proj', 'down_proj', 'k_proj', 'gate_proj', 'o_proj', 'up_proj'],
+        metadata={
+            "help": (
+                "List of module names or regex expression of the module names to replace with LoRA."
+                "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$'."
+                "This can also be a wildcard 'all-linear' which matches all linear/Conv1D layers except the output layer."
+                "If not specified, modules will be chosen according to the model architecture, If the architecture is "
+                "not known, an error will be raised -- in this case, you should specify the target modules manually."
+            ),
+        },
+    )
+    lora_alpha: int = field(default=8, metadata={"help": "Lora alpha"})
+    lora_dropout: float = field(default=0.0, metadata={"help": "Lora dropout"})
+    bias: Literal["none", "all", "lora_only"] = field(
+        default="none", metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"}
+    )
+
 
 def get_label_list(raw_dataset, split="train") -> List[str]:
     """Get the list of labels from a multi-label dataset"""
@@ -300,13 +332,13 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments, LoraArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, lora_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, lora_args = parser.parse_args_into_dataclasses()
 
     if model_args.use_auth_token is not None:
         warnings.warn(
@@ -545,9 +577,9 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
     )
-    if model_args.model_name_or_path == "microsoft/phi-2" or model_args.model_name_or_path == "openai-community/gpt2":
-        tokenizer.padding_side = "left"  
-        tokenizer.pad_token = tokenizer.eos_token
+    # if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B",""]:
+    #     tokenizer.padding_side = "left"  
+    #     tokenizer.pad_token = tokenizer.eos_token
 
     sequence_classification_model = PhiForSequenceClassification if model_args.model_name_or_path == "microsoft/phi-2" else AutoModelForSequenceClassification
     model = sequence_classification_model.from_pretrained(
@@ -560,8 +592,12 @@ def main():
         trust_remote_code=model_args.trust_remote_code,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
-    model.resize_token_embeddings(len(tokenizer))
-    model.config.pad_token_id = tokenizer.pad_token_id
+    if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B",
+                                         "mistralai/Mistral-7B-v0.1","meta-llama/Llama-2-7b-hf"]:
+        tokenizer.padding_side = "left"  
+        tokenizer.pad_token = tokenizer.eos_token
+        model.resize_token_embeddings(len(tokenizer))
+        model.config.pad_token_id = tokenizer.pad_token_id
 
     # Padding strategy
     if data_args.pad_to_max_length:
@@ -589,12 +625,26 @@ def main():
     else:  # regression
         label_to_id = None
 
+    # Lora PEFT
+    if lora_args.do_lora:
+        peft_config = LoraConfig(
+            r=lora_args.r,
+            target_modules=lora_args.target_modules,
+            lora_alpha=lora_args.lora_alpha,
+            lora_dropout=lora_args.lora_dropout,
+            bias=lora_args.bias,
+            task_type=TaskType.SEQ_CLS
+        )
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
+
     if data_args.max_seq_length > tokenizer.model_max_length:
         logger.warning(
             f"The max_seq_length passed ({data_args.max_seq_length}) is larger than the maximum length for the "
             f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+    print(f"max_seq_length: {max_seq_length}")
 
     def multi_labels_to_ids(labels: List[str]) -> List[float]:
         ids = [0.0] * len(label_to_id)  # BCELoss requires float as target type

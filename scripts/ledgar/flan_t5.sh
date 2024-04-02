@@ -3,8 +3,8 @@
 # Define an array of model configurations
 models=(
     "google/flan-t5-base,MAdAiLab/flan-t5-base_ledgar"
-    "google/flan-t5-small,MAdAiLab/flan-t5-small_ledgar"
-    "google-t5/t5-small,MAdAiLab/t5-small_ledgar"
+    # "google/flan-t5-small,MAdAiLab/flan-t5-small_ledgar"
+    # "google-t5/t5-small,MAdAiLab/t5-small_ledgar"
     "google-t5/t5-base,MAdAiLab/t5-base_ledgar"
 )
 
@@ -18,12 +18,13 @@ common_params=(
     --do_train
     --do_eval
     --do_predict
+    --max_seq_length 512
     --evaluation_strategy "steps"
     --eval_steps 100
     --save_steps 100
     --load_best_model_at_end
-    --per_device_train_batch_size 32
-    --per_device_eval_batch_size 32
+    --per_device_train_batch_size 16
+    --per_device_eval_batch_size 16
     --eval_accumulation_steps 100
     --optim "adamw_torch"
     --learning_rate 5e-4

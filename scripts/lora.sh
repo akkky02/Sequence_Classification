@@ -2,19 +2,19 @@
 
 # Define an array of dataset configurations
 datasets=(
-    # "MAdAiLab/twitter_disaster,default"
+    "MAdAiLab/twitter_disaster,default"
     # "MAdAiLab/amazon-attrprompt,default"
     # "coastalcph/lex_glue,scotus"
     # "ccdv/patent-classification,abstract"
-    "coastalcph/lex_glue,ledgar"
+    # "coastalcph/lex_glue,ledgar"
 )
 
 # Define an array of model configurations
 models=(
     # "mistralai/Mistral-7B-v0.1,NA"
-    "meta-llama/Llama-2-7b-hf,NA"
+    # "meta-llama/Llama-2-7b-hf,NA"
     "google/gemma-7b,NA"
-    "Qwen/Qwen1.5-7B,NA"
+    # "Qwen/Qwen1.5-7B,NA"
 )
 
 # Define common parameters
@@ -30,8 +30,8 @@ common_params=(
     --gradient_checkpointing
     --max_seq_length 512
     --evaluation_strategy "steps"
-    --eval_steps 250
-    --save_steps 250
+    --eval_steps 50
+    --save_steps 50
     --load_best_model_at_end
     --per_device_train_batch_size 32
     --per_device_eval_batch_size 32
@@ -39,7 +39,7 @@ common_params=(
     --max_grad_norm 1
     --weight_decay 0.1
     --optim "adamw_torch"
-    --learning_rate 5e-6
+    --learning_rate 1e-5
     --lr_scheduler_type "linear"
     --num_train_epochs 3
     --report_to "wandb"

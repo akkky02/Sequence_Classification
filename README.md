@@ -92,7 +92,7 @@ accelerate launch --config_file ../config/default_config.yaml run_classification
 
 Modify the above parameters as needed. 
 
-> **Note:** For lora, the `do_lora` parameter must be set to `True` and the `task_type` parameter must be set to `SEQ_CLS`. The `r`, `lora_alpha`, and `lora_dropout` parameters are specific to the LoRA model and can be modified as needed. Please refer the srcipt [lora.sh](scripts/lora.sh) for more information.
+> **Note:** For lora, the `do_lora` parameter must be passed and the `task_type` parameter must be set to `SEQ_CLS`. The `r`, `lora_alpha`, and `lora_dropout` parameters are specific to the LoRA model and can be modified as needed. Please refer the srcipt [lora.sh](scripts/lora.sh) for more information.
 
 ### Using the provided scripts
 
@@ -111,7 +111,15 @@ The script splits each configuration string into the model name and the hub mode
 If you're running this project on a single GPU setup, you don't need to use the `accelerate` command. Instead, you can run the `run_classification.py` script directly with Python. For example:
 
 ```bash
-python run_classification.py --model_name_or_path "google-bert/bert-base-uncased" --hub_model_id "MAdAiLab/bert-base-uncased_amazon" ...
+python run_classification.py 
+--model_name_or_path "google-bert/bert-base-uncased"
+--hub_model_id "MAdAiLab/bert-base-uncased_amazon"
+--text_column_name "text" \
+--label_column_name "label" \
+--shuffle_train_dataset \
+--do_train \
+--do_eval
+...
 ```
 
 ### Multi GPU Setup (Accelerate Configuration)
@@ -150,5 +158,4 @@ Below are some references that were used to build this project:
 
 ## License
 
-Apache License 2.0
-
+[Apache License 2.0](LICENSE)

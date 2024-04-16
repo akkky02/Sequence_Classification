@@ -16,6 +16,7 @@
 """ Finetuning the library models for text classification."""
 # You can also adapt this script on your own text classification task. Pointers for this are left as comments.
 
+# region Importing libraries and setting up environment
 import logging
 import os
 import random
@@ -59,6 +60,7 @@ from transformers.utils.versions import require_version
 from dotenv import load_dotenv, find_dotenv
 
 
+
 load_dotenv(find_dotenv())
 
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -72,8 +74,9 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/text
 
 
 logger = logging.getLogger(__name__)
+# endregion
 
-
+# region Dataclass for DataTrainingArguments
 @dataclass
 class DataTrainingArguments:
     """
@@ -217,8 +220,9 @@ class DataTrainingArguments:
             assert (
                 validation_extension == train_extension
             ), "`validation_file` should have the same extension (csv or json) as `train_file`."
+# endregion
 
-
+# region Dataclass for ModelArguments
 @dataclass
 class ModelArguments:
     """
@@ -275,8 +279,9 @@ class ModelArguments:
         default=False,
         metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."},
     )
+# endregion
 
-
+# region Dataclass for LoraArguments
 @dataclass
 class LoraArguments(PeftConfig):
     do_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA or not"})
@@ -299,8 +304,9 @@ class LoraArguments(PeftConfig):
     bias: Literal["none", "all", "lora_only"] = field(
         default="none", metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"}
     )
+# endregion
 
-
+# region get_label_list
 def get_label_list(raw_dataset, split="train") -> List[str]:
     """Get the list of labels from a multi-label dataset"""
 
@@ -312,9 +318,13 @@ def get_label_list(raw_dataset, split="train") -> List[str]:
     # we will treat the label list as a list of string instead of int, consistent with model.config.label2id
     label_list = [str(label) for label in label_list]
     return label_list
+# endregion
 
-
+# region Main function
 def main():
+# endregion
+
+# region HFArgumentParser setup
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -339,7 +349,9 @@ def main():
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_classification", model_args, data_args)
+# endregion
 
+# region Setup logging
     # Setup logging
     # Create the output directory if it doesn't exist
     os.makedirs(training_args.output_dir, exist_ok=True)
@@ -388,7 +400,9 @@ def main():
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
+# endregion
 
+# region Load dataset and preprocess
     # Get the datasets: you can either provide your own CSV/JSON training and evaluation files, or specify a dataset name
     # to load from huggingface/datasets. In ether case, you can specify a the key of the column(s) containing the text and
     # the key of the column containing the label. If multiple columns are specified for the text, they will be joined together
@@ -532,7 +546,9 @@ def main():
         num_labels = len(label_list)
         if num_labels <= 1:
             raise ValueError("You need more than one label to do classification.")
+# endregion
 
+# region Load pretrained model and tokenizer
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
@@ -613,7 +629,7 @@ def main():
     else:  # regression
         label_to_id = None
 
-        # Lora PEFT
+    # Lora PEFT
     if lora_args.do_lora:
         peft_config = LoraConfig(
             r=lora_args.r,
@@ -665,7 +681,9 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
+# endregion
 
+# region Setup train, eval and predict datasets
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset.")
@@ -730,8 +748,9 @@ def main():
                 accuracy = evaluate.load("accuracy", cache_dir=model_args.cache_dir)
                 f1 = evaluate.load("f1", cache_dir=model_args.cache_dir)
                 logger.info("Using both accuracy and F1 score for single-label classification task.")
+# endregion
 
-
+# region Setup compute_metrics function
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         if is_regression:
@@ -755,7 +774,9 @@ def main():
                 "f1_micro": f1.compute(predictions=preds, references=p.label_ids, average="micro")["f1"],
             }
         return result
+# endregion
 
+# region Data collator with padding
     # Data collator will default to DataCollatorWithPadding when the tokenizer is passed to Trainer, so we change it if
     # we already did the padding.
     if data_args.pad_to_max_length:
@@ -764,7 +785,9 @@ def main():
         data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
     else:
         data_collator = None
+# endregion
 
+# region Initialize Trainer
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
@@ -775,7 +798,9 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
+# endregion
 
+# region Training, evaluation and prediction
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -839,17 +864,20 @@ def main():
         #                 writer.write(f"{index}\t{item}\n")
         # logger.info("Predict results saved at {}".format(output_predict_file))
     kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification"}
+# endregion
 
+# region Push to hub or create model card
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
     else:
         trainer.create_model_card(**kwargs)
+# endregion
 
-
-def _mp_fn(index):
-    # For xla_spawn (TPUs)
-    main()
-
+# region Call main function
+# def _mp_fn(index):
+#     # For xla_spawn (TPUs)
+#     main()
 
 if __name__ == "__main__":
     main()
+# endregion

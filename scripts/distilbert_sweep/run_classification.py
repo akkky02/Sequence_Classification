@@ -16,6 +16,7 @@
 """ Finetuning the library models for text classification."""
 # You can also adapt this script on your own text classification task. Pointers for this are left as comments.
 
+# region Importing libraries and setting up environment
 import logging
 import os
 import random
@@ -23,7 +24,7 @@ import sys
 import warnings
 from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Union
-import wandb
+
 import datasets
 import evaluate
 import numpy as np
@@ -59,11 +60,12 @@ from transformers.utils.versions import require_version
 from dotenv import load_dotenv, find_dotenv
 
 
+
 load_dotenv(find_dotenv())
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 WANDB_API_KEY = os.getenv("WANDB_API_KEY")
-os.environ["WANDB_PROJECT"] = "TEST_SEQ_CLASSIFICATION_RUNS"
+# os.environ["WANDB_PROJECT"] = "distilbert_sweep"
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.39.0.dev0")
@@ -72,22 +74,9 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/text
 
 
 logger = logging.getLogger(__name__)
+# endregion
 
-# from transformers import TrainerCallback
-
-# class WandbLoggingCallback(TrainerCallback):
-#     def on_evaluate(self, args, state, control, **kwargs):
-#         # Log evaluation metrics
-#         metrics = kwargs.get("metrics", {})
-#         wandb.log({"eval": metrics})
-
-#     def on_predict(self, args, state, control, **kwargs):
-#         # Log prediction metrics
-#         metrics = kwargs.get("metrics", {})
-#         wandb.log({"predictions": metrics})
-
-
-
+# region Dataclass for DataTrainingArguments
 @dataclass
 class DataTrainingArguments:
     """
@@ -231,8 +220,9 @@ class DataTrainingArguments:
             assert (
                 validation_extension == train_extension
             ), "`validation_file` should have the same extension (csv or json) as `train_file`."
+# endregion
 
-
+# region Dataclass for ModelArguments
 @dataclass
 class ModelArguments:
     """
@@ -289,7 +279,9 @@ class ModelArguments:
         default=False,
         metadata={"help": "Will enable to load a pretrained model whose head dimensions are different."},
     )
+# endregion
 
+# region Dataclass for LoraArguments
 @dataclass
 class LoraArguments(PeftConfig):
     do_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA or not"})
@@ -312,8 +304,9 @@ class LoraArguments(PeftConfig):
     bias: Literal["none", "all", "lora_only"] = field(
         default="none", metadata={"help": "Bias type for Lora. Can be 'none', 'all' or 'lora_only'"}
     )
+# endregion
 
-
+# region get_label_list
 def get_label_list(raw_dataset, split="train") -> List[str]:
     """Get the list of labels from a multi-label dataset"""
 
@@ -325,7 +318,7 @@ def get_label_list(raw_dataset, split="train") -> List[str]:
     # we will treat the label list as a list of string instead of int, consistent with model.config.label2id
     label_list = [str(label) for label in label_list]
     return label_list
-
+# endregion
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -549,15 +542,15 @@ def main():
     # Load pretrained model and tokenizer
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    # config = AutoConfig.from_pretrained(
-    #     model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-    #     num_labels=num_labels,
-    #     finetuning_task="text-classification",
-    #     cache_dir=model_args.cache_dir,
-    #     revision=model_args.model_revision,
-    #     token=model_args.token,
-    #     trust_remote_code=model_args.trust_remote_code,
-    # )
+    config = AutoConfig.from_pretrained(
+        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        num_labels=num_labels,
+        finetuning_task="text-classification",
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        token=model_args.token,
+        trust_remote_code=model_args.trust_remote_code,
+    )
 
     if is_regression:
         config.problem_type = "regression"
@@ -577,7 +570,7 @@ def main():
         token=model_args.token,
         trust_remote_code=model_args.trust_remote_code,
     )
-    # if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B",""]:
+    # if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B"]:
     #     tokenizer.padding_side = "left"  
     #     tokenizer.pad_token = tokenizer.eos_token
 
@@ -593,7 +586,8 @@ def main():
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
     )
     if model_args.model_name_or_path in ["microsoft/phi-2", "openai-community/gpt2","Qwen/Qwen1.5-1.8B",
-                                         "mistralai/Mistral-7B-v0.1","meta-llama/Llama-2-7b-hf"]:
+                                         "mistralai/Mistral-7B-v0.1","meta-llama/Llama-2-7b-hf",
+                                         "google/gemma-7b","Qwen/Qwen1.5-7B"]:
         tokenizer.padding_side = "left"  
         tokenizer.pad_token = tokenizer.eos_token
         model.resize_token_embeddings(len(tokenizer))
@@ -625,7 +619,7 @@ def main():
     else:  # regression
         label_to_id = None
 
-    # Lora PEFT
+        # Lora PEFT
     if lora_args.do_lora:
         peft_config = LoraConfig(
             r=lora_args.r,
@@ -644,7 +638,7 @@ def main():
             f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-    print(f"max_seq_length: {max_seq_length}")
+    # print(f"max_seq_length: {max_seq_length}")
 
     def multi_labels_to_ids(labels: List[str]) -> List[float]:
         ids = [0.0] * len(label_to_id)  # BCELoss requires float as target type
@@ -742,7 +736,7 @@ def main():
                 accuracy = evaluate.load("accuracy", cache_dir=model_args.cache_dir)
                 f1 = evaluate.load("f1", cache_dir=model_args.cache_dir)
                 logger.info("Using both accuracy and F1 score for single-label classification task.")
-                
+
 
     def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
@@ -778,38 +772,15 @@ def main():
         data_collator = None
 
     # Initialize our Trainer
-    if lora_args.do_lora:
-        peft_model_id = model_args.model_name_or_path
-        config = PeftConfig.from_pretrained(peft_model_id)
-        inference_model = AutoModelForSequenceClassification.from_pretrained(config.base_model_name_or_path)
-        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-
-        # Load the lora model
-        inference_model = PeftModel.from_pretrained(inference_model, peft_model_id)
-
-        trainer = Trainer(
-            model=inference_model,
-            args=training_args,
-            train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=eval_dataset if training_args.do_eval else None,
-            compute_metrics=compute_metrics,
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-            # callbacks=[WandbLoggingCallback()],
-        )
-    else:
-        
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=eval_dataset if training_args.do_eval else None,
-            compute_metrics=compute_metrics,
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-            # callbacks=[WandbLoggingCallback()],
-        )
-
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset if training_args.do_train else None,
+        eval_dataset=eval_dataset if training_args.do_eval else None,
+        compute_metrics=compute_metrics,
+        tokenizer=tokenizer,
+        data_collator=data_collator,
+    )
 
     # Training
     if training_args.do_train:
@@ -848,7 +819,6 @@ def main():
         metrics["test_samples"] = len(predict_dataset)
         trainer.log_metrics("test", predictions.metrics)
         trainer.save_metrics("test", predictions.metrics)
-        # wandb.log({"predict": predictions.metrics})
         # if is_regression:
         #     predictions = np.squeeze(predictions)
         # elif is_multi_label:
@@ -874,12 +844,14 @@ def main():
         #                 item = label_list[item]
         #                 writer.write(f"{index}\t{item}\n")
         # logger.info("Predict results saved at {}".format(output_predict_file))
-    kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification", "dataset": data_args.dataset_name}
+    kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-classification"}
 
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
     else:
         trainer.create_model_card(**kwargs)
+
+
 
 
 def _mp_fn(index):
